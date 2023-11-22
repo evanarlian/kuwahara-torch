@@ -12,18 +12,23 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = { file = "LICENSE" }
 authors = [{ name = "Evan Arlian", email = "evanarlian2000@gmail.com" }]
-keywords = ["pytorch", "filter", "image"]
+keywords = ["pytorch", "filter", "image", "kuwahara"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-dependencies = ["torch"]
+dependencies = ["torch", "numpy", "Pillow"]
 
 [project.urls]
 Homepage = "https://github.com/evanarlian/kuwahara-torch"
 
 [tool.ruff]
+line-length = 100
+
+[tool.black]
+line-length = 100
+
 src = ["src"]
 
 # turns out src/<pkg_name> will be found automatically
