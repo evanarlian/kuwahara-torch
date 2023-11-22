@@ -18,12 +18,13 @@ def rgb_to_gray(rgb: Tensor) -> Tensor:
     return (rgb * converter[:, None, None]).sum(1, keepdim=True).expand(orig_shape)
 
 
-def kuwahara(arr: Tensor, kernel_size: int) -> Tensor:
+def kuwahara(arr: Tensor, kernel_size: int, padding_mode: str | None = None) -> Tensor:
     """Run the image with standard Kuwahara filter
 
     Args:
         arr (Tensor): RGB image (n, c, h, w)
         kernel_size (int): Kernel size (k, k)
+        padding_mode (str): Padding mode for torch F.pad. Defaults to no padding
 
     Raises:
         ValueError: If the kernel_size is even or smaller than 3
@@ -34,11 +35,13 @@ def kuwahara(arr: Tensor, kernel_size: int) -> Tensor:
     if not (kernel_size >= 3 and kernel_size % 2 == 1):
         raise ValueError("kernel_size must be odd and at least 3")
 
-    # the channel is kept in the gray image to reduce complex shape juggling later on
-    luma = rgb_to_gray(arr)  # (n, c, h, w)
-
     quad = kernel_size // 2 + 1  # quadrant size (q, q)
     stride = kernel_size // 2  # stride for quadrant that results in 4 quads in a kernel
+    if padding_mode is not None:
+        arr = F.pad(arr, (stride, stride, stride, stride), padding_mode)
+
+    # the channel is kept in the gray image to reduce complex shape juggling later on
+    luma = rgb_to_gray(arr)  # (n, c, h, w)
 
     # calculate each quadrant std, we can use variance instead to skip sqrt calculation
     luma = luma.unfold(dimension=-2, size=kernel_size, step=1)  # (n, c, h', w, kh)

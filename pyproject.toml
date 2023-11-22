@@ -9,7 +9,7 @@ name = "kuwahara-torch"
 version = "0.0.1"
 description = "Kuwahara filter in PyTorch."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { file = "LICENSE" }
 authors = [{ name = "Evan Arlian", email = "evanarlian2000@gmail.com" }]
 keywords = ["pytorch", "filter", "image", "kuwahara"]
