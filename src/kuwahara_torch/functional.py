@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 from torch import Tensor
 
 
@@ -6,62 +7,54 @@ def rgb_to_gray(rgb: Tensor) -> Tensor:
     """Converts RGB to grayscale
 
     Args:
-        rgb: RGB image tensor (N, C, H, W)
+        rgb: RGB image tensor (n, c, h, w)
 
     Returns:
-        grayscale: grayscale image (N, C, H, W)
+        grayscale: grayscale image (n, c, h, w)
     """
     # https://en.wikipedia.org/wiki/Grayscale
     orig_shape = rgb.size()
-    converter = torch.tensor([0.299, 0.587, 0.114])
+    converter = torch.tensor([0.299, 0.587, 0.114]).to(rgb.device)
     return (rgb * converter[:, None, None]).sum(1, keepdim=True).expand(orig_shape)
 
 
 def kuwahara(arr: Tensor, kernel_size: int) -> Tensor:
-    """Run the image with Kuwahara filter
+    """Run the image with standard Kuwahara filter
 
     Args:
-        arr (Tensor): RGB image (N, C, H, W)
+        arr (Tensor): RGB image (n, c, h, w)
         kernel_size (int): Kernel size (k, k)
 
     Raises:
         ValueError: If the kernel_size is even or smaller than 3
 
     Returns:
-        Tensor: RGB image after Kuwahara (N, C, H, W)
+        Tensor: RGB image after Kuwahara (n, c, h, w)
     """
     if not (kernel_size >= 3 and kernel_size % 2 == 1):
         raise ValueError("kernel_size must be odd and at least 3")
-    # the C is kept to reduce complex shape juggling later on
-    luma = rgb_to_gray(arr)  # (N, C, H, W)
 
-    # quadrant calculate (qs = quadrant side)
-    qs = kernel_size // 2 + 1
-    edges = kernel_size // 2
-    # loop for every pixel in the image, this is very slow but okay for POC
-    # this will also reduce the size, no padding yet TODO
-    # quadrant diagram:
-    # A B
-    # C D
-    result = torch.zeros_like(arr)
-    for i in range(edges, arr.size(-2) - edges):
-        for j in range(edges, arr.size(-1) - edges):
-            # fmt: off
-            # quadrants for calculating mean, based on the original image
-            m_a = arr[..., i-qs+1:i+1, j-qs+1:j+1]  # (N, C, qs, qs) upper left
-            m_b = arr[..., i-qs+1:i+1, j:j+qs]      # (N, C, qs, qs) upper right
-            m_c = arr[..., i:i+qs, j-qs+1:j+1]      # (N, C, qs, qs) lower left
-            m_d = arr[..., i:i+qs, j:j+qs]          # (N, C, qs, qs) lower right
-            # quadrants for calculating std, based on brightness
-            q_a = luma[..., i-qs+1:i+1, j-qs+1:j+1]  # (N, C, qs, qs) upper left
-            q_b = luma[..., i-qs+1:i+1, j:j+qs]      # (N, C, qs, qs) upper right
-            q_c = luma[..., i:i+qs, j-qs+1:j+1]      # (N, C, qs, qs) lower left
-            q_d = luma[..., i:i+qs, j:j+qs]          # (N, C, qs, qs) lower right
-            # fmt: on
-            means = torch.stack([m_a, m_b, m_c, m_d], dim=-1)  # (N, C, qs, qs, 4)
-            means = means.mean(dim=[2, 3])  # (N, C, 4)
-            stds = torch.stack([q_a, q_b, q_c, q_d], dim=-1)  # (N, C, qs, qs, 4)
-            stds = stds.std(dim=[2, 3])  # (N, C, 4)
-            stds = stds.argmin(-1).unsqueeze(-1)  # (N, C, 1)
-            result[..., i, j] = means.gather(-1, stds).squeeze(-1)  # (N, C)
-    return result
+    # the channel is kept in the gray image to reduce complex shape juggling later on
+    luma = rgb_to_gray(arr)  # (n, c, h, w)
+
+    quad = kernel_size // 2 + 1  # quadrant size (q, q)
+    stride = kernel_size // 2  # stride for quadrant that results in 4 quads in a kernel
+
+    # calculate each quadrant std, we can use variance instead to skip sqrt calculation
+    luma = luma.unfold(dimension=-2, size=kernel_size, step=1)  # (n, c, h', w, kh)
+    luma = luma.unfold(dimension=-2, size=kernel_size, step=1)  # (n, c, h', w', kh, kw)
+    luma = luma.unfold(dimension=-2, size=quad, step=stride)  # (n, c, h', w', kh', kw, qh)
+    luma = luma.unfold(dimension=-2, size=quad, step=stride)  # (n, c, h', w', kh', kw', qh, qw)
+    stds = luma.var(dim=[-1, -2]).view(*luma.size()[:4], -1)  # (n, c, h', w', 4)
+
+    # calculate each quadrant mean
+    arr = arr.unfold(dimension=-2, size=kernel_size, step=1)  # (n, c, h', w, kh)
+    arr = arr.unfold(dimension=-2, size=kernel_size, step=1)  # (n, c, h', w', kh, kw)
+    arr = arr.unfold(dimension=-2, size=quad, step=stride)  # (n, c, h', w', kh', kw, qh)
+    arr = arr.unfold(dimension=-2, size=quad, step=stride)  # (n, c, h', w', kh', kw', qh, qw)
+    means = arr.mean(dim=[-1, -2]).view(*arr.size()[:4], -1)  # (n, c, h', w', 4)
+
+    # use the smallest variance to choose the mean
+    stds_argmin = stds.argmin(-1, keepdim=True)  # (n, c, h', w', 1)
+    means_chosen = means.gather(-1, stds_argmin).squeeze(-1)  # (n, c, h', w')
+    return means_chosen
