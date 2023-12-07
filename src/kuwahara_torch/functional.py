@@ -82,6 +82,31 @@ def generate_8_slices(kernel_size: int) -> Tensor:
     return rotation
 
 
+def gaussian_kernel_2d(k: int, std: float, normalize: bool = True) -> Tensor:
+    """Generate Gaussian 2d filter.
+    $$G_{\sigma}(x,y) = \frac{1}{2\pi\sigma^2} \text{exp}\left(-\frac{x^2+y^2}{2\sigma^2}\right)$$
+
+    Args:
+        k (int): Kernel size
+        std (float): Standard deviation
+        normalize (bool):
+            If true (default), the sum will be 1
+            IF false, the sum will be < 1, but preserve the actual gaussian
+    Returns:
+        Tensor: Gaussian kernel 2d (k, k)
+    """
+    assert k % 2 == 1
+    x = torch.linspace(-(k // 2), k // 2, k)
+    # calculate the "back" part of the equation, at this point they are not normalized
+    gauss1d = torch.exp(-(x**2) / (2 * std**2))
+    gauss2d = torch.outer(gauss1d, gauss1d)
+    if normalize:
+        gauss2d /= gauss2d.sum()
+    else:
+        gauss2d /= 2 * torch.pi * std**2
+    return gauss2d
+
+
 def generalized_kuwahara(arr: Tensor, kernel_size: int, padding_mode: str | None = None) -> Tensor:
     """Run the image with generalized Kuwahara filter
 
