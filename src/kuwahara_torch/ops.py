@@ -1,6 +1,7 @@
 from torch import Tensor
 
 # NOTE: torch has masked tensor API, but it is not stable yet and implemented differently than mine
+# TODO refactor to weighted functions
 
 
 def masked_mean(input: Tensor, mask: Tensor, dim=None, keepdim=False) -> Tensor:

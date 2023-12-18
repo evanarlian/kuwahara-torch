@@ -14,7 +14,7 @@ def to_torch(image: Image.Image) -> Tensor:
         Tensor: image tensor (N=1, C=3, H, W)
     """
     arr = np.array(image)
-    arr = torch.from_numpy(arr).float().permute(2, 0, 1).unsqueeze(0)
+    arr = torch.from_numpy(arr).float().permute(2, 0, 1).unsqueeze(0) / 255.0
     return arr
 
 
@@ -27,6 +27,7 @@ def to_pil(arr: Tensor) -> Image.Image:
     Returns:
         Image.Image: RGB PIL Image
     """
-    arr = arr.squeeze(0).permute(1, 2, 0).byte().numpy()
+    arr = arr.squeeze(0).permute(1, 2, 0) * 255.0
+    arr = arr.byte().numpy()
     image = Image.fromarray(arr)
     return image

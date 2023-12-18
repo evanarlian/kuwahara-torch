@@ -121,7 +121,7 @@ def generalized_kuwahara(
     """Run the image with generalized Kuwahara filter
 
     Args:
-        arr (Tensor): RGB image (n, c, h, w)
+        arr (Tensor): RGB image, can be float16 or even on GPU (n, c, h, w)
         kernel_size (int): Kernel size (k, k)
         kernel_std (float): Gaussian std used in kernel. Defaults to 1/4 the kernel size.
         q: TODO this is the strength of stds i guess
@@ -143,25 +143,37 @@ def generalized_kuwahara(
         arr = F.pad(arr, (pads, pads, pads, pads), padding_mode)
 
     # the channel is kept in the gray image to reduce complex shape juggling later on
-    luma = rgb_to_gray(arr)  # (n, c, h, w)
-
+    luma = rgb_to_gray(arr).type(arr.type())  # (n, c, h, w)
+    
     # calculate standard deviation for each pizza slice
-    pizza = generate_8_slices(kernel_size).to(arr.device)  # (8, kh, kw)
+    pizza = generate_8_slices(kernel_size).type(arr.type())  # (8, kh, kw)
     luma = luma.unfold(dimension=-2, size=kernel_size, step=1)  # (n, c, h', w, kh)
     luma = luma.unfold(dimension=-2, size=kernel_size, step=1)  # (n, c, h', w', kh, kw)
-    luma = luma.unsqueeze(-3)  # (n, c, h', w', 1, kh, kw)
-    stds = masked_var(luma, pizza, dim=(-2, -1)).sqrt()  # (n, c, h', w', 8)
+    # memory friendly way of computing stds
+    stds = torch.empty(*luma.size()[:4], 8).type(arr.type())  # (n, c, h', w', 8)
+    for i in range(8):
+        stds[..., i] = masked_var(luma, pizza[i], dim=(-2, -1)).sqrt()
 
     # slice input images to suitable shapes
     arr = arr.unfold(dimension=-2, size=kernel_size, step=1)  # (n, c, h', w, kh)
     arr = arr.unfold(dimension=-2, size=kernel_size, step=1)  # (n, c, h', w', kh, kw)
-    arr = arr.unsqueeze(-3)  # (n, c, h', w', 1, kh, kw)
+    # arr = arr.unsqueeze(-3)  # (n, c, h', w', 1, kh, kw)
 
     # create weighting pizza kernel
-    gauss2d = gaussian_kernel_2d(k=kernel_size, std=kernel_std).to(arr.device)  # (kh, kw)
+    gauss2d = gaussian_kernel_2d(k=kernel_size, std=kernel_size / 5).type(arr.type())  # (kh, kw)
     gauss_pizza = pizza * gauss2d  # (8, kh, kw)
-    weighting = gauss_pizza * (stds[..., None, None] + 1e-4) ** -q  # (n, c, h', w', 8, kh, kw)
-    # weighting = gauss_pizza * stds[..., None, None] ** -q  # (n, c, h', w', 8, kh, kw)
-    means = masked_mean(arr, weighting, dim=(-3, -2, -1))  # (n, c, h', w')
 
+    # # CHAD ELEGANT
+    # weighting = gauss_pizza * (stds[..., None, None] + 1e-4) ** -q
+    # means = masked_mean(arr.unsqueeze(-3), weighting, dim=(-3, -2, -1))  # (n, c, h', w')
+    # print(weighting.size(), means.size())
+    # MEM friendly
+    sums = torch.zeros(stds.size()[:4]).type(arr.type())  # (n, c, h', w')
+    elems = torch.zeros(stds.size()[:4]).type(arr.type())  # (n, c, h', w')
+    for i in range(8):
+        #              (hw, kw)         (n, c, h', w', 1, 1)           ->  (n, c, h', w', kh, kw)
+        weighting = gauss_pizza[i] * (stds[..., i, None, None] + 1e-4) ** -q
+        sums += (arr * weighting).sum(dim=(-2, -1))
+        elems += weighting.sum(dim=(-2, -1))
+    means = sums / elems
     return means
