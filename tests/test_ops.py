@@ -2,7 +2,7 @@ import pytest
 import torch
 from torch import inf, nan
 
-from kuwahara_torch.ops import masked_mean, masked_var
+from kuwahara_torch.ops import weighted_mean, weighted_var
 
 
 def t(arr):
@@ -36,7 +36,7 @@ def t(arr):
 )
 def test_maskless_mean_vs_torch(input, dim, keepdim):
     mask = torch.ones_like(input)
-    answer = masked_mean(input, mask, dim, keepdim)
+    answer = weighted_mean(input, mask, dim, keepdim)
     reference = input.mean(dim, keepdim)
     assert answer.size() == reference.size()  # prevents wrong shape broadcasts to true below
     assert torch.allclose(answer, reference, equal_nan=True)
@@ -74,7 +74,7 @@ def test_maskless_mean_vs_torch(input, dim, keepdim):
     ],
 )
 def test_masked_mean(input, mask, dim, keepdim, result):
-    answer = masked_mean(input, mask, dim, keepdim)
+    answer = weighted_mean(input, mask, dim, keepdim)
     assert answer.size() == result.size()  # prevents wrong shape broadcasts to true below
     assert torch.allclose(answer, result, equal_nan=True)
 
@@ -107,7 +107,7 @@ def test_masked_mean(input, mask, dim, keepdim, result):
 )
 def test_maskless_variance_vs_torch(input, dim, correction, keepdim):
     mask = torch.ones_like(input)
-    answer = masked_var(input, mask, dim, correction=correction, keepdim=keepdim)
+    answer = weighted_var(input, mask, dim, correction=correction, keepdim=keepdim)
     reference = input.var(dim, correction=correction, keepdim=keepdim)
     assert answer.size() == reference.size()  # prevents wrong shape broadcasts to true below
     assert torch.allclose(answer, reference, equal_nan=True)
@@ -147,7 +147,7 @@ def test_maskless_variance_vs_torch(input, dim, correction, keepdim):
     ],
 )
 def test_masked_variance(input, mask, dim, correction, keepdim, result):
-    answer = masked_var(input, mask, dim, correction=correction, keepdim=keepdim)
+    answer = weighted_var(input, mask, dim, correction=correction, keepdim=keepdim)
     assert answer.size() == result.size()  # prevents wrong shape broadcasts to true below
     assert torch.allclose(answer, result, equal_nan=True)
 
@@ -180,7 +180,7 @@ def test_masked_variance(input, mask, dim, correction, keepdim, result):
 )
 def test_maskless_std_vs_torch(input, dim, correction, keepdim):
     mask = torch.ones_like(input)
-    std = masked_var(input, mask, dim, correction=correction, keepdim=keepdim).sqrt()
+    std = weighted_var(input, mask, dim, correction=correction, keepdim=keepdim).sqrt()
     reference = input.std(dim, correction=correction, keepdim=keepdim)
     assert std.size() == reference.size()  # prevents wrong shape broadcasts to true below
     assert torch.allclose(std, reference, equal_nan=True)

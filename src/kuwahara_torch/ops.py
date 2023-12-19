@@ -1,10 +1,7 @@
 from torch import Tensor
 
-# NOTE: torch has masked tensor API, but it is not stable yet and implemented differently than mine
-# TODO refactor to weighted functions
 
-
-def masked_mean(input: Tensor, mask: Tensor, dim=None, keepdim=False) -> Tensor:
+def weighted_mean(input: Tensor, mask: Tensor, dim=None, keepdim=False) -> Tensor:
     """Masked mean is similar to nanmean, but you provide the mask.
 
     Args:
@@ -23,7 +20,7 @@ def masked_mean(input: Tensor, mask: Tensor, dim=None, keepdim=False) -> Tensor:
     return summation / n_elems
 
 
-def masked_var(input: Tensor, mask: Tensor, dim=None, *, correction=1, keepdim=False) -> Tensor:
+def weighted_var(input: Tensor, mask: Tensor, dim=None, *, correction=1, keepdim=False) -> Tensor:
     """Masked variance, you provide the mask.
 
     Args:
@@ -38,7 +35,7 @@ def masked_var(input: Tensor, mask: Tensor, dim=None, *, correction=1, keepdim=F
     Returns:
         Tensor: Tensor variance
     """
-    avg = masked_mean(input, mask, dim, keepdim=True)  # preserve dim only when computing mean
+    avg = weighted_mean(input, mask, dim, keepdim=True)  # preserve dim only when computing mean
     sum_sq = (mask * (input - avg) ** 2).sum(dim, keepdim)
     n_elems = (mask.sum(dim, keepdim) - correction).clamp_min(0)
     return sum_sq / n_elems
