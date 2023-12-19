@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch import Tensor
 
-from kuwahara_torch.ops import weighted_mean, weighted_var
+from kuwahara_torch.ops import weighted_var
 
 
 def rgb_to_gray(rgb: Tensor) -> Tensor:
@@ -165,7 +165,7 @@ def generalized_kuwahara(
 
     # # no loop but memory hungry
     # weighting = gauss_pizza * (stds[..., None, None] + 1e-4) ** -q
-    # means = masked_mean(arr.unsqueeze(-3), weighting, dim=(-3, -2, -1))  # (n, c, h', w')
+    # means = weighted_mean(arr.unsqueeze(-3), weighting, dim=(-3, -2, -1))  # (n, c, h', w')
     # print(weighting.size(), means.size())
 
     # mem friendly way of computing means
