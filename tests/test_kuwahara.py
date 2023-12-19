@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from kuwahara_torch.functional import kuwahara
 
 
@@ -21,4 +22,8 @@ def test_kuwahara_correct_shape(n, c, h, w, kernel_size, padding_mode, out_h, ou
     assert result.size() == (n, c, out_h, out_w)
 
 
-## TODO also check it should raise later
+def test_kuwahara_gpu():
+    device = torch.device("cuda:0")
+    arr = torch.rand(3, 3, 100, 120, device=device)
+    result = kuwahara(arr, 7)
+    assert result.device == device
