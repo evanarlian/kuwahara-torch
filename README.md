@@ -1,8 +1,20 @@
 # kuwahara-torch
 Kuwahara filter in PyTorch.
 
-# Features
-* Windowing is not implemented with loops, but in pure torch.
-* Can run on GPU.
-* Can be torch compiled.
-* Differentiable (idk why do you want that but it is possible).
+# Examples
+See full code on [example/generate.py](example/generate.py)
+
+Originally Kuwahara filter was used for denoising.
+<div style="display:flex;">
+    <img src="example/noisy.jpg" alt="Image 1" style="flex: 1;">
+    <img src="example/noisy_k.jpg" alt="Image 2" style="flex: 1;">
+    <img src="example/noisy_gk.jpg" alt="Image 3" style="flex: 1;">
+</div>
+
+# TODO
+* add papers and references etc
+* clear notes
+
+
+
+
