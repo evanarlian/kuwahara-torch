@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 # https://packaging.python.org/en/latest/specifications/declaring-project-metadata
 [project]
 name = "kuwahara-torch"
-version = "0.0.2"
+version = "0.0.3"
 description = "Kuwahara filter in PyTorch."
 readme = "README.md"
 requires-python = ">=3.10"
